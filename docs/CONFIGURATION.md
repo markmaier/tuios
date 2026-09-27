@@ -172,16 +172,19 @@ a prompt is held, answered and handed back.
 Crush reports its state natively to herdr, another multiplexer, when it finds
 herdr's environment in its pane. tuios accepts the same reports on a socket of
 its own, `<daemon socket>.herdr`, and `herdr_protocol` in `[agents]` says which
-panes are told about it:
+panes are told about it. jcode needs the same variables for a different
+reason: its hooks run in its shared server, and herdr's pane id, which jcode
+forwards from each client to that client's hooks, is how tuios's jcode hook
+finds its pane ([AGENT_STATE.md](AGENT_STATE.md#jcode)).
 
 ```toml
 [agents]
 herdr_protocol = "agents"   # agents (default), always, off
 ```
 
-`agents` tells a pane that starts such a harness directly, as `tuios
-new-window NAME crush`, `start-agent crush` or `fan --agent crush` do. `always` tells
-every pane, so a Crush started from a shell prompt reports too. `off` tells
+`agents` tells a pane that starts Crush or jcode directly, as `tuios
+new-window NAME crush`, `start-agent crush` or `fan --agent jcode` do. `always` tells
+every pane, so a Crush or jcode started from a shell prompt reports too. `off` tells
 none. A pane that is told gets `HERDR_ENV=1`, `HERDR_SOCKET_PATH` naming
 tuios's socket and `HERDR_PANE_ID` naming the pane, so anything that checks
 `HERDR_ENV` reads it as a herdr pane: herdr itself refuses to start inside one

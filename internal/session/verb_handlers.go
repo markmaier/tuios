@@ -61,6 +61,20 @@ func (d *Daemon) resolveVerbSession(name string) (*Session, *verbError) {
 	})
 }
 
+// resolveReportSession is the session an agent report is for: the one it
+// names, else the session holding the window whose id it names, else the
+// most recently active session. A hook that knows its pane's window id and
+// not its session, as a jcode hook reporting from jcode's shared server does
+// (internal/integration/hook_jcode.go), reaches the right session. Window ids
+// are unique across sessions; a window named by its name rather than its id
+// matches none here and falls back as before.
+func (d *Daemon) resolveReportSession(name, window string) (*Session, *verbError) {
+	if name == "" {
+		name = d.sessionOfWindow(window)
+	}
+	return d.resolveVerbSession(name)
+}
+
 // mapResolveErr classifies a window/PTY resolution error into a stable code and
 // attaches the remedy for that class. sess may be nil when the caller has no
 // session context, in which case the available-window list is omitted.
@@ -1036,7 +1050,7 @@ func (d *Daemon) verbSetAgentState(_ *connState, params json.RawMessage) (any, *
 		}
 		ifState = append(ifState, st)
 	}
-	sess, verr := d.resolveVerbSession(p.Session)
+	sess, verr := d.resolveReportSession(p.Session, p.Window)
 	if verr != nil {
 		return nil, verr
 	}
@@ -1145,7 +1159,7 @@ func (d *Daemon) verbSetAgentSession(_ *connState, params json.RawMessage) (any,
 	if len(sid) > maxAgentSessionIDLen {
 		return nil, invalidParam("agent_session_id", fmt.Sprintf("agent_session_id is %d bytes; the limit is %d", len(sid), maxAgentSessionIDLen))
 	}
-	sess, verr := d.resolveVerbSession(p.Session)
+	sess, verr := d.resolveReportSession(p.Session, p.Window)
 	if verr != nil {
 		return nil, verr
 	}

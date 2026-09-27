@@ -37,12 +37,16 @@ type Env struct {
 	Home     string
 	Getenv   func(string) string
 	LookPath func(string) (string, error)
+	// LookupEnv tells a variable set to nothing from one not set, which
+	// Getenv cannot. Nil falls back to Getenv, so only a non-empty value
+	// counts as set.
+	LookupEnv func(string) (string, bool)
 }
 
 // SystemEnv is the running process's own environment.
 func SystemEnv() Env {
 	home, _ := os.UserHomeDir()
-	return Env{Home: home, Getenv: os.Getenv, LookPath: exec.LookPath}
+	return Env{Home: home, Getenv: os.Getenv, LookPath: exec.LookPath, LookupEnv: os.LookupEnv}
 }
 
 func (e Env) env(name string) string {
@@ -50,6 +54,15 @@ func (e Env) env(name string) string {
 		return ""
 	}
 	return e.Getenv(name)
+}
+
+// lookupEnv reports whether name is set, and to what.
+func lookupEnv(e Env, name string) (string, bool) {
+	if e.LookupEnv != nil {
+		return e.LookupEnv(name)
+	}
+	v := e.env(name)
+	return v, v != ""
 }
 
 // dirFromEnv is the directory an override variable names, else home joined
@@ -356,6 +369,19 @@ var targets = []*Target{
 			{file: "config.yaml", format: yamlListItem{key: "plugins", sub: "enabled", item: "tuios-agent-state"}},
 		},
 		ownedDir: filepath.Join("plugins", "tuios-agent-state"),
+	},
+	{
+		// jcode runs every hook in its shared server, so the hook finds its
+		// pane from the terminal identity jcode forwards from the client, not
+		// from its own environment (hook_jcode.go).
+		ID: JCode, Name: "jcode", Binary: "jcode", Version: 1, Reports: ReportsState,
+		Source:    "https://github.com/1jehuang/jcode/blob/master/docs/HOOKS.md ([hooks] in ~/.jcode/config.toml or $JCODE_HOME/config.toml, each key one command or a list of them; lists need jcode 0.81.5 or newer; the payload is JCODE_HOOK_PAYLOAD)",
+		ConfigDir: func(e Env) string { return e.dirFromEnv("JCODE_HOME", ".jcode") },
+		File:      "config.toml",
+		format:    tomlHookKeys{table: "hooks"},
+		Events: []HookEvent{
+			{"session_start", 0}, {"turn_start", 0}, {"turn_end", 0}, {"session_end", 0},
+		},
 	},
 	{
 		// Version 2: the opencode plugin it shares offers permission requests
@@ -699,6 +725,13 @@ func (t *Target) notes(env Env) []string {
 	case ClaudeCode:
 		if data, _ := readOptional(t.Path(env)); bytes.Contains(data, []byte("tuios-agent-state.sh")) {
 			out = append(out, "the older tuios-agent-state.sh shim is also wired in "+t.Path(env)+". It now runs the same reporter, so every event is reported twice. Remove its entries.")
+		}
+	case JCode:
+		for _, ev := range t.Events {
+			name := "JCODE_HOOK_" + strings.ToUpper(ev.Name)
+			if _, set := lookupEnv(env, name); set {
+				out = append(out, name+" is set, and jcode runs what it names in place of "+ev.Name+" in "+t.Path(env)+", tuios's command included. Unset it in the environment the jcode server starts from.")
+			}
 		}
 	case Codex:
 		data, _ := readOptional(filepath.Join(t.ConfigDir(env), "config.toml"))

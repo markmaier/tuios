@@ -56,11 +56,20 @@ func TermProgramFor(argv []string, kittyGraphics, sixelGraphics bool) string {
 	return name
 }
 
-// SpeaksHerdrProtocol reports whether argv starts, directly, a harness that
-// reports its state over herdr's pane protocol when herdr's environment is
-// set: Crush (internal/herdr/client.go in github.com/charmbracelet/crush).
-func SpeaksHerdrProtocol(argv []string) bool {
-	return programName(argv) == "crush"
+// WantsHerdrEnv reports whether argv starts, directly, a harness whose state
+// reaches tuios by way of herdr's pane variables. Crush reports its state over
+// herdr's pane protocol when they are set (internal/herdr/client.go in
+// github.com/charmbracelet/crush). jcode does not speak the protocol, but it
+// forwards the variables from each client to that client's hooks
+// (CLIENT_TERMINAL_ENV_VARS in crates/jcode-terminal-launch/src/lib.rs in
+// github.com/1jehuang/jcode), and they are how tuios's jcode hook finds its
+// pane from inside jcode's shared server (internal/integration/hook_jcode.go).
+func WantsHerdrEnv(argv []string) bool {
+	switch programName(argv) {
+	case "crush", "jcode":
+		return true
+	}
+	return false
 }
 
 // IsCodex reports whether argv starts Codex directly: its program's base

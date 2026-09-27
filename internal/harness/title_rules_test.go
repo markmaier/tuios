@@ -53,6 +53,14 @@ var titleCases = []titleCase{
 	{"hermes", "✓ hermes", "idle"},
 	{"hermes", "hermes", "none"},
 
+	// jcode appends its turn metrics to the session's free-text name.
+	{"jcode", "🦊 fox · work ~12s", "working"},
+	{"jcode", "Fix the flaky test · +12 -3 · work ~2m05s", "working"},
+	{"jcode", "🦊 fox · working", "working"},
+	{"jcode", "🦊 fox · last ~1h02m", "idle"},
+	{"jcode", "🦊 fox", "none"},
+	{"jcode", "notes on the last ~5s of work", "none"},
+
 	{"kiro", "◐ kiro: fixing the build", "working"},
 	{"kiro", "kiro", "none"},
 

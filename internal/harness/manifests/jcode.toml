@@ -1,0 +1,55 @@
+# jcode (github.com/1jehuang/jcode). Its state comes from the hooks tuios
+# integration install jcode writes (internal/integration/hook_jcode.go); the
+# rules here are what tuios has to go on without them, and what names the pane
+# jcode's so the screen tier and resume know whose it is.
+schema_version = 1
+id             = "jcode"
+display_name   = "jcode"
+priority       = 50
+
+# Measured on a real install (jcode 0.88.0, Linux): the installer's
+# ~/.local/bin/jcode is a shell launcher that execs
+# ~/.jcode/builds/versions/<version>/jcode-linux-x86_64.bin, so the process
+# runs as comm "jcode-linux-x86" (the kernel's fifteen characters) with that
+# path as argv[0] and exe. The binary is named after the platform, so the
+# install directory is what names it. A cargo install runs as plain "jcode".
+# The shared server, "jcode serve", is detached from every terminal and is
+# never a pane's foreground process.
+[detect]
+comm     = ["jcode"]
+argv0    = ["jcode"]
+exe_glob = ["**/.jcode/builds/**/jcode*"]
+
+# No screen rules: none has been measured against a live turn yet.
+[screen]
+enabled = false
+
+# The window title, from crates/jcode-tui/src/tui/app/terminal_title.rs at
+# jcode 0.88.0: the session's name, then " · +N -M" once it has edited files,
+# then " · work ~12s" (or " · working" before the first second) while a turn
+# runs, and " · last ~12s" once it has ended. The name is free text, so the
+# rules read only the suffix jcode appends.
+[title]
+enabled = true
+
+[[title.rule]]
+state    = "working"
+priority = 5
+message  = "Works on a turn."
+regex    = [' · (?:work ~[0-9]+(?:h[0-9]{2}m|m[0-9]{2}s|s)|working)$']
+
+[[title.rule]]
+state    = "idle"
+priority = 1
+message  = "Waits at its prompt."
+regex    = [' · last ~[0-9]+(?:h[0-9]{2}m|m[0-9]{2}s|s)$']
+
+# How a prompt is typed in. Not measured.
+[input]
+submit          = "cr"
+bracketed_paste = true
+source          = "default: Enter sends CR in raw mode; not measured"
+
+[resume]
+argv   = ["jcode", "--resume", "{session_id}"]
+source = "jcode docs/HERDR.md (jcode --resume <session-id>); session ids are opaque, e.g. session_fox_1789925960992_a0034efd41b9b914"

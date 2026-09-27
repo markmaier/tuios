@@ -1,0 +1,75 @@
+[
+  {
+    "name": "session_start create",
+    "payload": {"event": "session_start", "session_id": "session_fox_1", "cwd": "/src", "source": "create", "model": "claude-opus-5-5"},
+    "want": {"state": "idle", "agent_session_id": "session_fox_1"}
+  },
+  {
+    "name": "session_start resume",
+    "payload": {"event": "session_start", "session_id": "session_fox_1", "source": "resume"},
+    "want": {"state": "idle", "agent_session_id": "session_fox_1"}
+  },
+  {
+    "name": "turn_start",
+    "payload": {"event": "turn_start", "session_id": "session_fox_1", "model": "claude-opus-5-5", "source": "chat"},
+    "want": {"state": "working", "agent_session_id": "session_fox_1"}
+  },
+  {
+    "name": "turn_end ok",
+    "payload": {"event": "turn_end", "session_id": "session_fox_1", "status": "ok", "duration_ms": "4200", "model": "claude-opus-5-5", "last_assistant_text": "Fixed the flaky test.\nDetails follow."},
+    "want": {"state": "done", "message": "Fixed the flaky test.", "agent_session_id": "session_fox_1", "activity": {"event": "turn_end", "text": "Fixed the flaky test.", "model": "claude-opus-5-5"}}
+  },
+  {
+    "name": "turn_end ok with no text",
+    "payload": {"event": "turn_end", "session_id": "session_fox_1", "status": "ok"},
+    "want": {"state": "done", "agent_session_id": "session_fox_1", "activity": {"event": "turn_end"}}
+  },
+  {
+    "name": "turn_end error",
+    "payload": {"event": "turn_end", "session_id": "session_fox_1", "status": "error", "error": "provider returned 529 overloaded\nretry later"},
+    "want": {"state": "errored", "message": "provider returned 529 overloaded", "agent_session_id": "session_fox_1"}
+  },
+  {
+    "name": "turn_end error with no text",
+    "payload": {"event": "turn_end", "session_id": "session_fox_1", "status": "error"},
+    "want": {"state": "errored", "message": "the turn ended on an error", "agent_session_id": "session_fox_1"}
+  },
+  {
+    "name": "turn_end with an unknown status",
+    "payload": {"event": "turn_end", "session_id": "session_fox_1", "status": "paused"},
+    "skip": "is not a state change"
+  },
+  {
+    "name": "session_end",
+    "payload": {"event": "session_end", "session_id": "session_fox_1", "source": "close"},
+    "want": {"state": "none", "agent_session_id": "session_fox_1"}
+  },
+  {
+    "name": "post_tool is not mapped",
+    "payload": {"event": "post_tool", "session_id": "session_fox_1", "tool_name": "bash", "status": "ok"},
+    "skip": "event not mapped"
+  },
+  {
+    "name": "the payload from JCODE_HOOK_PAYLOAD when stdin is empty",
+    "raw": "",
+    "env": {"JCODE_HOOK_PAYLOAD": "{\"event\":\"turn_start\",\"session_id\":\"session_owl_2\"}"},
+    "want": {"state": "working", "agent_session_id": "session_owl_2"}
+  },
+  {
+    "name": "no payload anywhere",
+    "raw": "",
+    "skip": "empty payload"
+  },
+  {
+    "name": "the server's inherited TUIOS_AGENT is not the pane's",
+    "env": {"TUIOS_AGENT": "claude-code"},
+    "payload": {"event": "turn_start", "session_id": "session_fox_1"},
+    "want": {"state": "working", "agent_session_id": "session_fox_1"}
+  },
+  {
+    "name": "the client's TUIOS_AGENT naming another harness",
+    "env": {"JCODE_CLIENT_TUIOS_AGENT": "codex"},
+    "payload": {"event": "turn_start", "session_id": "session_fox_1"},
+    "skip": "foreign harness"
+  }
+]

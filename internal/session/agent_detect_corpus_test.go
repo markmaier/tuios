@@ -164,6 +164,21 @@ var detectionCorpus = []corpusCase{
 		want: "crush",
 	},
 	{
+		// jcode's installer launches ~/.jcode/builds/versions/<v>/jcode-<os>-<arch>.bin
+		// and the kernel cuts the name to fifteen characters.
+		name: "jcode from its installer",
+		how:  "measured",
+		info: foregroundInfo{comm: "jcode-linux-x86", exe: "/home/u/.jcode/builds/versions/0.88.0/jcode-linux-x86_64.bin",
+			argv: []string{"/home/u/.jcode/builds/versions/0.88.0/jcode-linux-x86_64.bin", "--resume", "session_microbe_1789925960992_a0034efd41b9b914"}},
+		want: "jcode",
+	},
+	{
+		name: "jcode from cargo",
+		how:  "documented",
+		info: foregroundInfo{comm: "jcode", exe: "/home/u/.cargo/bin/jcode", argv: []string{"jcode"}},
+		want: "jcode",
+	},
+	{
 		name: "opencode native",
 		how:  "measured",
 		info: foregroundInfo{comm: "opencode", exe: "/usr/bin/opencode", argv: []string{"opencode"}},

@@ -99,6 +99,9 @@ type hookRun struct {
 	stderr   bytes.Buffer
 	dialed   bool
 	dialWait time.Duration
+	// herdrSock is the herdr protocol socket of the daemon the hook reports
+	// to, "" for none.
+	herdrSock string
 }
 
 func (h *hookRun) run(t *testing.T, o agentHookOptions, payload string, args ...string) {
@@ -117,8 +120,9 @@ func (h *hookRun) run(t *testing.T, o agentHookOptions, payload string, args ...
 			time.Sleep(h.dialWait)
 			return h.daemon, nil
 		},
-		self:       func() (int, []int) { return 4242, []int{4250, 4242} },
-		harnessPID: func(ancestors []int) int { return ancestors[0] },
+		self:        func() (int, []int) { return 4242, []int{4250, 4242} },
+		harnessPID:  func(ancestors []int) int { return ancestors[0] },
+		herdrSocket: func() string { return h.herdrSock },
 	})
 }
 

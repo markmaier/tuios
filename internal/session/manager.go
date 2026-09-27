@@ -126,8 +126,9 @@ func (m *Manager) SetHerdrProtocol(mode string) {
 // user's shell) is started with, nil for none: HERDR_ENV, HERDR_SOCKET_PATH
 // naming tuios's own socket, and HERDR_PANE_ID naming the pane. A pane gets
 // it when the daemon listens on the socket, [agents] herdr_protocol is not
-// off, and the pane starts a harness known to report over it or the mode is
-// always. See herdr_compat.go for why a shell pane is not told by default.
+// off, and the pane starts a harness that reports by way of it or the mode is
+// always. See herdr_compat.go for why a shell pane is not told by default, and
+// guestenv.WantsHerdrEnv for the harnesses that are.
 func (m *Manager) HerdrEnv(windowID string, command []string) []string {
 	sock := ""
 	if p := m.herdrSocket.Load(); p != nil {
@@ -140,7 +141,7 @@ func (m *Manager) HerdrEnv(windowID string, command []string) []string {
 	if sock == "" || windowID == "" || mode == config.HerdrProtocolOff {
 		return nil
 	}
-	if mode != config.HerdrProtocolAlways && !guestenv.SpeaksHerdrProtocol(command) {
+	if mode != config.HerdrProtocolAlways && !guestenv.WantsHerdrEnv(command) {
 		return nil
 	}
 	return []string{"HERDR_ENV=1", "HERDR_SOCKET_PATH=" + sock, "HERDR_PANE_ID=" + windowID}

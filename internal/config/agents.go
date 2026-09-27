@@ -30,8 +30,9 @@ type AgentsConfig struct {
 	// agent when it comes to rest. See agents_work.go.
 	Queue QueueConfig `toml:"queue,omitempty"`
 	// HerdrProtocol says which panes are told about the socket tuios accepts
-	// herdr's pane state protocol on, which Crush reports to by itself:
-	// "agents" (the default) for a pane that starts such a harness directly,
+	// herdr's pane state protocol on, which Crush reports to by itself, and
+	// which tuios's jcode hook finds its pane by: "agents" (the default) for
+	// a pane that starts such a harness directly,
 	// "always" for every pane, so one started from a shell reports too, and
 	// "off" for none. A pane told about it reads as a herdr pane to anything
 	// that checks HERDR_ENV, herdr itself included, which refuses to start

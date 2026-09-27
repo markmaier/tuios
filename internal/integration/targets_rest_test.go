@@ -26,6 +26,7 @@ var userFiles = map[string]string{
 	Droid:       `{"model": "sonnet", "hooks": {"SessionStart": [{"hooks": [{"type": "command", "command": "echo hi"}]}]}}`,
 	Qoder:       `{"permissions": {"allow": ["Read"]}}`,
 	Qwen:        `{"general": {"checkpointing": {"enabled": true}}, "hooks": {"SessionStart": [{"matcher": "*", "hooks": [{"type": "command", "command": "qwen-log"}]}]}}`,
+	JCode:       "[terminal]\n\n[hooks]\npre_tool_timeout_ms = 5000\nsession_start = '\"/opt/herdr-jcode\" report'\nturn_end = ['~/bin/notify', \"~/bin/log\"] # mine\n\n[ambient]\nenabled = false\n",
 	Kimi:        "default_model = \"kimi-k2\"\n\n[[hooks]]\nevent = \"PreToolUse\"\nmatcher = \"Shell\"\ncommand = \".kimi/hooks/safety-check.sh\"\ntimeout = 10\n\n[loop_control]\nmax_steps = 50 # a comment\n",
 }
 
@@ -43,6 +44,7 @@ func keeps(t *testing.T, id, got string) {
 		Droid:       {`"echo hi"`, `"model": "sonnet"`},
 		Qoder:       {`"Read"`},
 		Qwen:        {`"qwen-log"`, `"checkpointing"`},
+		JCode:       {"[terminal]", "pre_tool_timeout_ms = 5000", `'"/opt/herdr-jcode" report'`, "'~/bin/notify'", `"~/bin/log"`, "# mine", "[ambient]\nenabled = false"},
 		Kimi:        {"default_model = \"kimi-k2\"", "safety-check.sh", "max_steps = 50 # a comment"},
 	}[id]
 	for _, w := range want {

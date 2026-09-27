@@ -72,6 +72,10 @@ type agentHookIO struct {
 	// turn end sends what it held back (flushStatusLine). Nil skips that.
 	stampDir func() (string, error)
 	now      func() time.Time
+	// herdrSocket is the herdr protocol socket of the daemon the hook reports
+	// to, which a jcode hook checks the client's HERDR_SOCKET_PATH against.
+	// Nil or "" means none.
+	herdrSocket func() string
 }
 
 func newAgentHookCommand() *cobra.Command {
@@ -85,14 +89,19 @@ This is what the hooks tuios integration install writes run. The harness
 hands its hook payload on stdin (or, for the Codex notify command, as the last
 argument). The event comes from the payload, or from the event argument when
 the payload does not name it. Supported harnesses: claude-code, codex,
-copilot, cursor-agent, gemini-cli, opencode, amp, kilo, kimi, pi and qwen,
-which report the pane's state; and antigravity, crush, devin, droid, grok,
+copilot, cursor-agent, gemini-cli, opencode, amp, jcode, kilo, kimi, pi and
+qwen, which report the pane's state; and antigravity, crush, devin, droid, grok,
 hermes and qoder, which report only the conversation id (set-agent-session)
 and leave the state to the pane's screen rules.
 
 The pane is found from --window, then TUIOS_PANE_ID, then the process's
 controlling terminal, then its parent processes, so a harness or sandbox
-that scrubs the environment is still reported for. A payload that does not
+that scrubs the environment is still reported for. jcode is the exception:
+its hooks run in its shared server, whose environment and parents belong to
+the pane that started it, so a jcode hook takes its pane only from what jcode
+forwards from the client (JCODE_CLIENT_TUIOS_PANE_ID, else
+JCODE_CLIENT_HERDR_PANE_ID when it names this tuios's herdr socket) and its
+payload from JCODE_HOOK_PAYLOAD. A payload that does not
 parse, an event with no mapping, a subagent's event, and an event from a
 harness other than the one TUIOS_AGENT names are all reported as nothing,
 never as done.
@@ -146,6 +155,13 @@ given.`,
 				harnessPID: integration.HarnessPID,
 				stampDir:   statusLineStampDir,
 				now:        time.Now,
+				herdrSocket: func() string {
+					path, err := session.GetSocketPath()
+					if err != nil {
+						return ""
+					}
+					return session.HerdrSocketPath(path)
+				},
 			})
 			return nil
 		},
@@ -400,10 +416,12 @@ func agentHook(o agentHookOptions, args []string, hio agentHookIO) agentHookOutc
 	if hio.self != nil {
 		sid, ancestors = hio.self()
 	}
-	if hio.harnessPID != nil {
+	// A jcode hook's ancestors are jcode's shared server, one process for
+	// every pane, which says nothing about this pane's harness.
+	if hio.harnessPID != nil && out.Harness != integration.JCode {
 		out.HarnessPID = hio.harnessPID(ancestors)
 	}
-	out.Session, out.Window, out.PaneBy, err = resolveHookPane(o, hio, client, sid, ancestors)
+	out.Session, out.Window, out.PaneBy, err = resolveHookPane(o, hio, out.Harness, client, sid, ancestors)
 	if err != nil {
 		out.Error = err.Error()
 		return out
@@ -457,10 +475,13 @@ func flushAtTurnEnd(out agentHookOutcome, res hookReportResult, client verbCalle
 
 // resolveHookPane finds the pane to report for: the --window flag, then
 // TUIOS_PANE_ID, then the daemon's resolve-pane on the process's terminal
-// session and its ancestors.
-func resolveHookPane(o agentHookOptions, hio agentHookIO, client verbCaller, sid int, ancestors []int) (sess, window, by string, err error) {
+// session and its ancestors. A jcode hook is the exception (resolveJCodePane).
+func resolveHookPane(o agentHookOptions, hio agentHookIO, harness string, client verbCaller, sid int, ancestors []int) (sess, window, by string, err error) {
 	if o.window != "" {
 		return firstNonEmptyString(o.session, hio.getenv("TUIOS_SESSION")), o.window, "flag", nil
+	}
+	if harness == integration.JCode {
+		return resolveJCodePane(o, hio)
 	}
 	if id := hio.getenv("TUIOS_PANE_ID"); id != "" {
 		return firstNonEmptyString(o.session, hio.getenv("TUIOS_SESSION")), id, "env", nil
@@ -481,6 +502,25 @@ func resolveHookPane(o agentHookOptions, hio agentHookIO, client verbCaller, sid
 		return "", "", "", err
 	}
 	return res.Session, res.WindowID, res.By, nil
+}
+
+// resolveJCodePane finds a jcode hook's pane from the terminal identity jcode
+// forwarded from the client. Nothing else is tried: the hook runs in jcode's
+// shared server, whose TUIOS_PANE_ID, terminal and ancestors all belong to the
+// pane that started the server, so they would put every jcode pane's report
+// on that one pane. An empty session is left empty; the daemon finds the
+// window's own session from its id.
+func resolveJCodePane(o agentHookOptions, hio agentHookIO) (sess, window, by string, err error) {
+	herdr := ""
+	if hio.herdrSocket != nil {
+		herdr = hio.herdrSocket()
+	}
+	sess, window, by = integration.JCodePane(hio.getenv, herdr)
+	if window == "" {
+		return "", "", "", errors.New("no pane: jcode forwarded neither the client's TUIOS_PANE_ID nor a HERDR_PANE_ID for this tuios. " +
+			"A pane gets the herdr variables when it starts jcode itself; for jcode started from a shell, set [agents] herdr_protocol = \"always\"")
+	}
+	return firstNonEmptyString(o.session, sess), window, by, nil
 }
 
 // hookReportResult is the part of set-agent-state's answer the hook reads.

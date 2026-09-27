@@ -2168,7 +2168,7 @@ Resume row closes when the command is typed, when the pane goes to `working` or
 `needs_input` (you ran the agent yourself), or when the pane closes.
 
 The bundled manifests carry `[resume]` for Claude Code, Codex, opencode,
-Copilot, Cursor Agent, Devin, Droid, Grok, Hermes, Kilo, Kimi, Qoder, Qwen and
+Copilot, Cursor Agent, Devin, Droid, Grok, Hermes, jcode, Kilo, Kimi, Qoder, Qwen and
 Antigravity, after herdr's resume table. A harness has to report its session id
 for any of this to apply, which the integrations from `tuios integration
 install` do. Add one to your own manifest:
@@ -2193,7 +2193,7 @@ since the conversation is on that machine.
 ## Harness integrations
 
 A harness with a hooks system reports its own state, which outranks everything
-tuios can work out by looking. tuios wires eighteen of them itself:
+tuios can work out by looking. tuios wires nineteen of them itself:
 
 ```sh
 tuios integration install claude-code   # any harness below, or --all
@@ -2202,7 +2202,7 @@ tuios integration uninstall codex
 tuios doctor agents                     # PATH, install state, and panes missing theirs
 ```
 
-An integration reports one of two things. Eleven report the pane's **state**:
+An integration reports one of two things. Twelve report the pane's **state**:
 their hooks cover the whole turn, from the prompt through approvals to the end.
 The other seven report only the **session**: the harness's own id for the
 conversation, stored on the pane with `set-agent-session` so it can be resumed,
@@ -2221,6 +2221,7 @@ status` and `tuios doctor agents` say which each one is.
 | opencode | state | `plugins/tuios-agent-state.js` in `~/.config/opencode` (or `$XDG_CONFIG_HOME/opencode`) | [plugins](https://opencode.ai/docs/plugins/) |
 | Kilo | state | `plugin/tuios-agent-state.js` in `~/.config/kilo` (or `$XDG_CONFIG_HOME/kilo`), the opencode plugin under Kilo's id | opencode's plugin API, which Kilo forks |
 | Amp | state | `plugins/tuios-agent-state.ts` in `~/.config/amp` (or `$XDG_CONFIG_HOME/amp`) | [plugin API](https://ampcode.com/manual/plugin-api) |
+| jcode | state | tuios's command added to `session_start`, `turn_start`, `turn_end` and `session_end` under `[hooks]` in `~/.jcode/config.toml` (or `$JCODE_HOME`); needs a pane that starts jcode, or `herdr_protocol = "always"` ([jcode](#jcode)) | [hooks](https://github.com/1jehuang/jcode/blob/master/docs/HOOKS.md) |
 | Kimi Code CLI | state | `[[hooks]]` tables between two marker comments at the end of `~/.kimi-code/config.toml` (or `$KIMI_CODE_HOME`); needs 0.14.0 or newer | [hooks](https://www.kimi.com/code/docs/en/kimi-code-cli/customization/hooks.html) |
 | Pi | state | `extensions/tuios-agent-state.ts` in `~/.pi/agent` (or `$PI_CODING_AGENT_DIR`) | herdr's Pi extension, and Pi's extension events |
 | GitHub Copilot CLI | state | `hooks/tuios.json` in `~/.copilot` (or `$COPILOT_HOME`), a file of its own | [hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference) |
@@ -2278,6 +2279,51 @@ rewritten. A symlink to a missing file is refused. It refuses a file it cannot p
 rewrite it, and refuses when the harness's configuration directory does not
 exist yet (run the harness once first). `--command` names the program the hooks
 run when `tuios` is not on the harness's PATH.
+
+### jcode
+
+Every jcode client talks to one shared `jcode serve` daemon, which the first
+client starts detached, and jcode runs every hook in that daemon. A hook's
+environment is the daemon's, its parents are the daemon, and both belong to
+whichever pane started the server, so `TUIOS_PANE_ID`, the terminal and the
+parent chain would put every jcode pane's report on that one pane. `tuios
+agent-hook jcode` reads none of them, and none of the `TUIOS_AGENT` it inherits.
+
+What does name the pane is the terminal identity jcode takes from each client
+and hands that client's hooks, repeated under a `JCODE_CLIENT_` prefix. jcode
+forwards a fixed list of variables, and herdr's are on it, so tuios gives a pane
+that starts jcode directly (`tuios new-window NAME jcode`, `start-agent jcode`,
+`fan --agent jcode`) `HERDR_ENV=1`, `HERDR_SOCKET_PATH` naming tuios's herdr
+socket and `HERDR_PANE_ID` naming the pane, as it does for Crush
+([herdr_protocol](CONFIGURATION.md#harnesses-that-report-to-herdr)). The hook
+takes `JCODE_CLIENT_HERDR_PANE_ID` only when `JCODE_CLIENT_HERDR_SOCKET_PATH` is
+that socket, so a real herdr's pane is never taken for a tuios one. A jcode that
+also forwards `TUIOS_PANE_ID` gives `JCODE_CLIENT_TUIOS_PANE_ID`, which is
+preferred. A pane with neither is reported for by nothing, and `--explain` says
+so. For jcode started from a shell prompt, set `herdr_protocol = "always"`.
+
+The report names the window by its id alone, and the daemon finds the window's
+session from it. It carries no harness pid, since every jcode pane's hook has
+the same parent. The daemon still places the hook in the pane that started the
+server, so under `[agents.permissions]` `mode = "strict"` a report for a pane in
+another session is refused; the default mode allows it.
+
+A pane told the herdr variables reads as a herdr pane to jcode: its Mermaid
+rendering takes herdr's graphics path, and a launch into a new pane (a visible
+swarm agent, resume in a new terminal) tries herdr before its other terminals.
+
+The payload is `JCODE_HOOK_PAYLOAD`, since jcode gives its observer hooks no
+stdin. jcode keeps hooks as keys of `[hooks]`, each one command or a list of
+them. The installer adds tuios's command to each event it registers in the shape
+the key already has: a missing key gets the one command, a key holding a list
+gets it after the list's last element, and a key holding one command of your own
+becomes a list of yours and tuios's (lists need jcode 0.81.5 or newer).
+Uninstall takes exactly that back out, byte for byte, and a `[hooks]` table the
+install added goes with it once empty. `[hooks]` written as dotted keys or an
+inline table is refused. A `JCODE_HOOK_<EVENT>` variable in the jcode server's
+environment replaces that event's configured hooks, tuios's included, and
+`status` notes one it can see. jcode reads its config again on its own, so a
+running server picks the hooks up without a restart.
 
 Codex gets hooks rather than the older `notify` command: `notify` takes one
 command only, so it would replace a user's own, and it reports only that a turn
@@ -2443,6 +2489,16 @@ for a choice, a line of input, an editor or a custom prompt, with the prompt's
 title; the end is `working` from `needs_input`, or `idle` when no turn is
 running.
 
+jcode maps `session_start` to `idle` with its session id, `turn_start` to
+`working`, `turn_end` to `done` with the first line of what it said last when
+its status is `ok` and to `errored` with the first line of the error when it is
+`error`, and `session_end` to `none`. jcode has no event for a prompt that waits
+on you, and an interactive jcode has no such prompt: its destructive-command
+gate answers the model, and its permission requests belong to ambient mode. A
+turn you interrupt ends with status `ok`, so it reads `done`. A turn cut short by
+a crash sends nothing, and the pane's process detector clears the claim when
+jcode leaves the foreground. [jcode](#jcode) says how its hook finds the pane.
+
 Qwen Code maps like Claude Code: `SessionStart` to `idle` (not after
 compaction), `UserPromptSubmit` and `PreToolUse` to `working`,
 `PermissionRequest` to `needs_input` kind `approval` (kind `question` for its
@@ -2517,7 +2573,8 @@ The pane is taken from, in order:
    session: the first ancestor that is a pane's shell names the pane.
 
 Steps 3 and 4 are what keep a harness or a sandbox that scrubs the environment
-reported for. Only panes on the daemon's own machine are matched.
+reported for. Only panes on the daemon's own machine are matched. A jcode hook
+takes none of steps 2 to 4 ([jcode](#jcode)).
 
 ### Nested and foreign events
 

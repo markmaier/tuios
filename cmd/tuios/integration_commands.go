@@ -60,12 +60,15 @@ Each harness is wired through its own configuration: hook entries in
 Claude Code, Gemini CLI, Qwen Code, Qoder CLI, Droid and Devin CLI's
 settings, Codex's hooks.json, Crush's crush.json, Cursor's hooks.json,
 a named block in Antigravity CLI's hooks.json, [[hooks]] tables in Kimi
-Code CLI's config.toml, a hook file of tuios's own in GitHub Copilot CLI and
+Code CLI's config.toml, the [hooks] keys of jcode's config.toml, a hook file of tuios's own in GitHub Copilot CLI and
 Grok CLI's hooks directories, and a plugin for opencode, Kilo, Amp, Pi and
 Hermes Agent (which is also turned on in its config.yaml).
 
 Claude Code, Codex, GitHub Copilot CLI, Cursor Agent, Gemini CLI, opencode,
-Kilo, Amp, Kimi, Pi and Qwen Code report the pane's state. The rest report
+Kilo, Amp, jcode, Kimi, Pi and Qwen Code report the pane's state. jcode's hooks
+run in its shared server and find their pane from the herdr variables tuios
+gives a pane that starts jcode; for jcode started from a shell, set [agents]
+herdr_protocol = "always". The rest report
 only the conversation id, so a pane can be resumed, and leave the state to the
 pane's screen rules: their hooks miss events a state needs, and a state from a
 hook outranks every screen rule.

@@ -270,7 +270,7 @@ func reportStatusLine(o agentStatusLineOptions, harness string, payload []byte, 
 			out.Error = err.Error()
 			return out
 		}
-		out.Session, out.Window, out.PaneBy, err = resolveHookPane(agentHookOptions{}, agentHookIO{getenv: getenv}, client, sid, ancestors)
+		out.Session, out.Window, out.PaneBy, err = resolveHookPane(agentHookOptions{}, agentHookIO{getenv: getenv}, "", client, sid, ancestors)
 		if err != nil {
 			if noPane != "" {
 				_ = os.WriteFile(noPane, nil, 0o600)

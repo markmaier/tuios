@@ -33,6 +33,7 @@ const (
 	Droid       = "droid"
 	Grok        = "grok"
 	Hermes      = "hermes"
+	JCode       = "jcode"
 	Kilo        = "kilo"
 	Kimi        = "kimi"
 	Pi          = "pi"
@@ -67,6 +68,7 @@ var harnessAliases = map[string]string{
 	"grok-cli":        Grok,
 	"hermes":          Hermes,
 	"hermes-agent":    Hermes,
+	"jcode":           JCode,
 	"kilo":            Kilo,
 	"kilo-code":       Kilo,
 	"kilocode":        Kilo,
@@ -92,7 +94,7 @@ func HarnessIDs() []string {
 	return []string{
 		ClaudeCode, Codex, GeminiCLI, OpenCode,
 		Amp, Antigravity, Copilot, Crush, CursorAgent, Devin, Droid, Grok,
-		Hermes, Kilo, Kimi, Pi, Qoder, Qwen,
+		Hermes, JCode, Kilo, Kimi, Pi, Qoder, Qwen,
 	}
 }
 
@@ -103,7 +105,7 @@ func HarnessIDs() []string {
 var ManifestIDs = []string{
 	"aider", "amp", "antigravity", "claude-code", "cline", "codex", "copilot",
 	"crush", "cursor-agent", "devin", "droid", "gemini-cli", "goose", "grok",
-	"hermes", "kilo", "kimi", "kiro", "maki", "opencode", "pi", "qoder", "qwen",
+	"hermes", "jcode", "kilo", "kimi", "kiro", "maki", "opencode", "pi", "qoder", "qwen",
 }
 
 // hintOwner resolves a TUIOS_AGENT value to a harness id: an alias this
@@ -226,7 +228,7 @@ func Translate(harnessName string, in Input) Decision {
 	if !ok {
 		return skip(harnessName, in.Event, "no hook mapping for harness "+harnessName)
 	}
-	if hint := strings.TrimSpace(in.env(AgentHintEnv)); hint != "" {
+	if hint := strings.TrimSpace(agentHint(id, in)); hint != "" {
 		if owner, known := hintOwner(hint); known && owner != id {
 			return skip(id, in.Event, "foreign harness: "+AgentHintEnv+" names "+owner)
 		}
@@ -236,6 +238,11 @@ func Translate(harnessName string, in Input) Decision {
 	// named on the command line is not enough to act on: a Stop that cannot
 	// be read might be a subagent's.
 	trimmed := strings.TrimSpace(string(in.Payload))
+	if trimmed == "" && id == JCode {
+		// jcode gives its observer hooks no stdin; the payload is in the
+		// environment. See hook_jcode.go.
+		trimmed = strings.TrimSpace(in.env(jcodePayloadEnv))
+	}
 	if trimmed == "" {
 		return skip(id, in.Event, "empty payload")
 	}
@@ -258,6 +265,8 @@ func Translate(harnessName string, in Input) Decision {
 		return translateOpenCode(id, in, p)
 	case Amp:
 		return translateAmp(in, p)
+	case JCode:
+		return translateJCode(in, p)
 	case Kimi:
 		return translateKimi(in, p)
 	case Pi:
